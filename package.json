@@ -9,12 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@codemirror/lang-javascript": "^6.2.3",
     "@phosphor-icons/react": "^2.0.15",
     "@tailwindcss/container-queries": "^0.1.1",
     "@types/bcrypt": "^5.0.2",
     "@types/js-beautify": "^1.14.3",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/uuid": "^9.0.8",
+    "@uiw/react-codemirror": "^4.23.10",
     "axios": "^1.6.7",
     "bcrypt": "^5.1.1",
     "clsx": "^2.1.0",

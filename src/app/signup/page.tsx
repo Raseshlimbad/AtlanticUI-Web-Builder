@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { v4 } from "uuid";
 import { UserRegisterFields } from "../api/users/route";
 import { Loader2 } from "lucide-react";
-import { auth, provider, signInWithPopup } from "@/firebase";
+// import { auth, provider, signInWithPopup } from "@/firebase";
 
 export default function SignUp() {
   const [passType, setPassType] = useState<"password" | "text">("password");
@@ -243,48 +243,48 @@ export default function SignUp() {
   };
 
     // Handle Google Sign-In
-    const handleGoogleSignIn = async () => {
-      try {
-        setIsLoading(true);
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
+    // const handleGoogleSignIn = async () => {
+    //   try {
+    //     setIsLoading(true);
+    //     const result = await signInWithPopup(auth, provider);
+    //     const user = result.user;
 
-          // Get the Google ID token from the signed-in user
-         const googleIdToken = await user.getIdToken();
+    //       // Get the Google ID token from the signed-in user
+    //      const googleIdToken = await user.getIdToken();
 
-         console.log("Google ID Token:", googleIdToken);
+    //      console.log("Google ID Token:", googleIdToken);
     
-        const Payload: UserRegisterFields = {
-          userID: v4(),
-          name: user.displayName ?? "Google User", // You can customize the user name handling
-          email: user.email ?? "",
-          password: "", // No password is required here, as it's managed by Firebase
-          projects: [],
-          googleIdToken: googleIdToken,   
-        };
+    //     const Payload: UserRegisterFields = {
+    //       userID: v4(),
+    //       name: user.displayName ?? "Google User", // You can customize the user name handling
+    //       email: user.email ?? "",
+    //       password: "", // No password is required here, as it's managed by Firebase
+    //       projects: [],
+    //       googleIdToken: googleIdToken,   
+    //     };
   
-        // Proceed with your existing user registration or login logic
-        const response = await axios.post(
-          `${BACKEND_URL}users`,
-          Payload,
-          HEADER_CONFIG,
-        );
+    //     // Proceed with your existing user registration or login logic
+    //     const response = await axios.post(
+    //       `${BACKEND_URL}users`,
+    //       Payload,
+    //       HEADER_CONFIG,
+    //     );
   
-        if (response.data.status === true) {
-          handleAnalyticsUpdate();
-          dispatchUserState({
-            type: "LOGIN",
-            payload: { data: response.data.data },
-          });
+    //     if (response.data.status === true) {
+    //       handleAnalyticsUpdate();
+    //       dispatchUserState({
+    //         type: "LOGIN",
+    //         payload: { data: response.data.data },
+    //       });
   
-          router.push("/dashboard");
-        }
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Google Login Error:", error);
-        setIsLoading(false);
-      }
-    };
+    //       router.push("/dashboard");
+    //     }
+    //     setIsLoading(false);
+    //   } catch (error) {
+    //     console.error("Google Login Error:", error);
+    //     setIsLoading(false);
+    //   }
+    // };
 
   return (
     <div className="flex h-screen w-full items-center justify-center">
