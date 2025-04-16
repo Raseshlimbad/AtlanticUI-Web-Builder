@@ -1,7 +1,8 @@
-import { connect } from "@/backend/helpers/connection";
-import projects from "@/backend/models/projects";
-import users from "@/backend/models/users";
+import { PrismaClient } from '@prisma/client';
 import { EditorElement } from "@/context/Editor/EditorProvider";
+import { NextRequest } from 'next/server';
+
+const prisma = new PrismaClient();
 
 export interface ProjectProps {
   projectID: string;
@@ -12,142 +13,121 @@ export interface ProjectProps {
 }
 
 const validateAccess = async (projectId: string, authorId: string) => {
-  const project = await projects.findOne({ projectID: projectId });
+  const project = await prisma.project.findUnique({
+    where: { projectID: projectId }
+  });
 
   if (!project) {
     return { msg: "INVALID_PROJECT", data: null };
-  } else {
-    const getValidated = project.creatorID === authorId;
-    if (!getValidated) {
-      return { msg: "INVALID_REQUEST", data: null };
-    } else {
-      return { msg: "VALID_REQUEST", data: project._doc };
-    }
   }
+  
+  const getValidated = project.creatorID === authorId;
+  if (!getValidated) {
+    return { msg: "INVALID_REQUEST", data: null };
+  }
+  
+  return { msg: "VALID_REQUEST", data: project };
 };
 
-// PROJECT REMOVAL FROM USER ARRAY AFTER DELETION
 const createProjectFromUser = async (userId: string, projectId: string) => {
-  const user = await users.findOne({ userID: userId });
-  if (user) {
-    var updatedProject = [...user.projects, projectId];
-    const { projects, ...updatedUser } = user._doc;
-
-    await users.findOneAndUpdate(
-      { userID: userId },
-      { $set: { ...updatedUser, projects: updatedProject } },
-    );
-  }
+  await prisma.user.update({
+    where: { userID: userId },
+    data: {
+      projects: {
+        connect: { projectID: projectId }
+      }
+    }
+  });
 };
 
-// CREATE PROJECT
 export async function POST(req: Request) {
   try {
-    const json = await req.json();
-
-    // Type assertion to UserLoginFields or null
-    const body = json as ProjectProps | null;
+    const body = (await req.json()) as ProjectProps | null;
 
     if (!body) return Response.json({ msg: "INVALID_REQUEST", status: false });
 
-    connect();
-    const newProject = new projects({
-      ...body,
+    const newProject = await prisma.project.create({
+      data: {
+        projectID: body.projectID,
+        name: body.name,
+        status: body.status,
+        creatorID: body.creatorID,
+        code: body.code as any,
+      }
     });
-    await newProject.save();
+
     await createProjectFromUser(body.creatorID, newProject.projectID);
     return Response.json(
       { message: "PROJECT_CREATED", data: newProject, status: true },
-      { status: 200 },
+      { status: 200 }
     );
   } catch (error) {
     return Response.json({ status: false, error: error }, { status: 400 });
   }
 }
 
-// VIEW A PROJECT
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
     const authorId = searchParams.get("authorId");
-    connect();
 
     if (!projectId || !authorId) {
       return Response.json(
         { msg: "INVALID_REQUEST", status: false },
-        { status: 200 },
+        { status: 200 }
       );
     }
+
     const validationResponse = await validateAccess(projectId, authorId);
-    if (validationResponse.msg === "INVALID_PROJECT") {
-      return Response.json(
-        { error: "INVALID_PROJECT", status: false },
-        { status: 200 },
-      );
-    } else if (validationResponse.msg === "INVALID_REQUEST") {
-      return Response.json(
-        { error: "INVALID_REQUEST", status: false },
-        { status: 200 },
-      );
-    } else if (validationResponse.msg === "VALID_REQUEST") {
-      return Response.json(
-        {
-          msg: "VALIDATED",
-          data: validationResponse.data,
-          status: true,
-        },
-        { status: 200 },
-      );
-    }
+    return Response.json(
+      {
+        msg: validationResponse.msg,
+        data: validationResponse.data,
+        status: validationResponse.msg === "VALID_REQUEST"
+      },
+      { status: 200 }
+    );
   } catch (error) {
     return Response.json({ status: false, error: error }, { status: 400 });
   }
 }
 
-//EDIT PROJECT
 export async function PUT(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
     const authorId = searchParams.get("authorId");
     const body = await req.json();
+
     if (!projectId || !authorId || !body) {
       return Response.json(
         { msg: "INVALID_REQUEST", status: false },
-        { status: 200 },
+        { status: 200 }
       );
     }
-    connect();
 
     const validationResponse = await validateAccess(projectId, authorId);
-    if (validationResponse.msg === "INVALID_PROJECT") {
+    if (validationResponse.msg !== "VALID_REQUEST") {
       return Response.json(
-        { error: "INVALID_PROJECT", status: false },
-        { status: 200 },
-      );
-    } else if (validationResponse.msg === "INVALID_REQUEST") {
-      return Response.json(
-        { error: "INVALID_REQUEST", status: false },
-        { status: 200 },
-      );
-    } else if (validationResponse.msg === "VALID_REQUEST") {
-      //After Validation it updates
-      const updatedProject = await projects.findOneAndUpdate(
-        { projectID: projectId },
-        { $set: body },
-      );
-      return Response.json(
-        { msg: "PROJECT_UPDATED", data: updatedProject, status: true },
-        { status: 200 },
+        { error: validationResponse.msg, status: false },
+        { status: 200 }
       );
     }
+
+    const updatedProject = await prisma.project.update({
+      where: { projectID: projectId },
+      data: body
+    });
+
+    return Response.json(
+      { msg: "PROJECT_UPDATED", data: updatedProject, status: true },
+      { status: 200 }
+    );
   } catch (error) {
     return Response.json({ msg: "ERROR", status: false }, { status: 400 });
   }
 }
-
-// DELETE A PROJECT
 
 export async function DELETE(req: Request) {
   try {
@@ -158,54 +138,36 @@ export async function DELETE(req: Request) {
     if (!projectId || !authorId) {
       return Response.json(
         { error: "INVALID_REQUEST", status: false },
-        { status: 200 },
+        { status: 200 }
       );
     }
-    connect();
+
     const validationResponse = await validateAccess(projectId, authorId);
-
-    if (validationResponse.msg === "INVALID_PROJECT") {
+    if (validationResponse.msg !== "VALID_REQUEST") {
       return Response.json(
-        { error: "INVALID_PROJECT", status: false },
-        { status: 200 },
+        { error: validationResponse.msg, status: false },
+        { status: 200 }
       );
-    } else if (validationResponse.msg === "INVALID_REQUEST") {
-      return Response.json(
-        { error: "INVALID_REQUEST", status: false },
-        { status: 200 },
-      );
-    } else if (validationResponse.msg === "VALID_REQUEST") {
-      //After Validation it updates
-
-      const deletedUser = await projects.findOneAndDelete({
-        projectID: projectId,
-      });
-
-      if (deletedUser) {
-        await deleteProjectFromUser(authorId, projectId);
-        return Response.json(
-          { msg: "PROJECT_DELETED", status: true },
-          { status: 200 },
-        );
-      }
     }
+
+    await prisma.project.delete({
+      where: { projectID: projectId }
+    });
+
+    await prisma.user.update({
+      where: { userID: authorId },
+      data: {
+        projects: {
+          disconnect: { projectID: projectId }
+        }
+      }
+    });
+
+    return Response.json(
+      { msg: "PROJECT_DELETED", status: true },
+      { status: 200 }
+    );
   } catch (error) {
     return Response.json({ status: false, error: error }, { status: 400 });
   }
 }
-// PROJECT REMOVAL FROM USER ARRAY AFTER DELETION
-
-const deleteProjectFromUser = async (userId: string, projectId: string) => {
-  const user = await users.findOne({ userID: userId });
-  const { projects, ...userOther } = user._doc;
-  if (user) {
-    const updatedProjectsArray = user._doc.projects.filter(
-      (project: string) => project !== projectId,
-    );
-
-    await users.findOneAndUpdate(
-      { userID: userId },
-      { $set: { ...userOther, projects: updatedProjectsArray } },
-    );
-  }
-};

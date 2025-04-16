@@ -1,99 +1,99 @@
-import { connect } from "@/backend/helpers/connection";
-import analytics from "@/backend/models/analytics";
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export interface AnalyticsProps {
   analyticsId: string;
-  timestamp: string[];
+  timestamps: Date[];
 }
 
-// CREATE PROJECT
 export async function POST(req: Request) {
   try {
-    const json = await req.json();
-
-    // Type assertion to UserLoginFields or null
-    const body = json as AnalyticsProps | null;
+    const body = await req.json() as AnalyticsProps | null;
 
     if (!body) return Response.json({ msg: "INVALID_REQUEST", status: false });
 
-    connect();
-    const newAnalytics = new analytics({
-      ...body,
+    const newAnalytics = await prisma.analytics.create({
+      data: {
+        analyticsId: body.analyticsId,
+        timestamps: body.timestamps || [],
+      }
     });
-    await newAnalytics.save();
+
     return Response.json(
-      { message: "PROJECT_CREATED", data: newAnalytics, status: true },
-      { status: 200 },
+      { message: "ANALYTICS_CREATED", data: newAnalytics, status: true },
+      { status: 200 }
     );
   } catch (error) {
     return Response.json({ status: false, error: error }, { status: 400 });
   }
 }
 
-// VIEW A PROJECT
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const analyticsId = searchParams.get("analyticsId");
 
-    connect();
-
     if (!analyticsId) {
       return Response.json(
         { msg: "INVALID_REQUEST", status: false },
-        { status: 200 },
+        { status: 200 }
       );
     }
 
-    const analyticsData = await analytics.findOne({ analyticsId: analyticsId });
+    const analyticsData = await prisma.analytics.findUnique({
+      where: { analyticsId }
+    });
 
     if (analyticsData) {
-      return Response.json(
-        {
-          data: analyticsData,
-        },
-        { status: 200 },
-      );
+      return Response.json({ data: analyticsData }, { status: 200 });
     }
+
+    return Response.json(
+      { msg: "ANALYTICS_NOT_FOUND", status: false },
+      { status: 404 }
+    );
   } catch (error) {
     return Response.json({ status: false, error: error }, { status: 400 });
   }
 }
 
-//EDIT PROJECT
 export async function PUT(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const analyticsId = searchParams.get("analyticsId");
 
-    connect();
-
     if (!analyticsId) {
       return Response.json(
         { msg: "INVALID_REQUEST", status: false },
-        { status: 200 },
+        { status: 200 }
       );
     }
 
-    const analyticsData = await analytics.findOne({ analyticsId: analyticsId });
+    const analyticsData = await prisma.analytics.findUnique({
+      where: { analyticsId }
+    });
 
     if (analyticsData) {
-      const updatedProject = await analytics.findOneAndUpdate(
-        { analyticsId: analyticsId },
-        {
-          $set: {
-            timestamps: [
-              ...analyticsData.timestamps,
-              new Date().toLocaleString(),
-            ],
-          },
-        },
-      );
+      const updatedAnalytics = await prisma.analytics.update({
+        where: { analyticsId },
+        data: {
+          timestamps: {
+            push: new Date()
+          }
+        }
+      });
+
       return Response.json(
-        { msg: "PROJECT_UPDATED", data: updatedProject, status: true },
-        { status: 200 },
+        { msg: "ANALYTICS_UPDATED", data: updatedAnalytics, status: true },
+        { status: 200 }
       );
     }
+
+    return Response.json(
+      { msg: "ANALYTICS_NOT_FOUND", status: false },
+      { status: 404 }
+    );
   } catch (error) {
     return Response.json({ msg: "ERROR", status: false }, { status: 400 });
   }
