@@ -3,12 +3,15 @@
 
 import { useEffect, useState } from "react";
 import { Checks } from "@phosphor-icons/react/dist/ssr";
-import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
-import jsx from "react-syntax-highlighter/dist/esm/languages/prism/jsx";
-import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
+import js from "react-syntax-highlighter/dist/esm/languages/hljs/javascript";
+import { githubGist } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import { EditorElement, useEditor } from "@/context/Editor/EditorProvider";
 import { CopySimple } from "@phosphor-icons/react";
 import { html } from "js-beautify";
+
+// Register the language
+SyntaxHighlighter.registerLanguage('javascript', js);
 
 export default function CodeBlock() {
   const { state } = useEditor();
@@ -63,7 +66,8 @@ export default function CodeBlock() {
   }
 
   // ----
-  SyntaxHighlighter.registerLanguage("jsx", jsx);
+  // Remove this line as we don't need to register language with the default SyntaxHighlighter
+  // SyntaxHighlighter.registerLanguage("jsx", jsx);
 
   useEffect(() => {
     const stringElement = generateCodeString(state.editor.elements[0]);
@@ -90,8 +94,8 @@ export default function CodeBlock() {
       <div className="relative h-full w-[95%]">
         {code && (
           <SyntaxHighlighter
-            language="jsx"
-            style={atomDark}
+            language="javascript"
+            style={githubGist}
             customStyle={{ width: "100%", height: "100%", textWrap: "pretty", maxWidth: "100%" }}
             showLineNumbers
             wrapLines
